@@ -1,1 +1,196 @@
-|-0/0-|....|-0/o-|....
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cxb-cloud</title>
+
+  <style>
+    :root {
+      --black: #000;
+      --white: #fff;
+      --grey-shadow: rgba(180, 180, 180, 0.65);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #111;
+      color: white;
+    }
+
+    /* HEADER */
+    header {
+      height: 25vh; /* larger, more central presence */
+      min-height: 200px;
+      background-image: url("cloud.png");
+      background-repeat: repeat-x;
+      background-size: auto 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      margin: 0 0 1.5rem 0;
+      font-size: clamp(3rem, 6vw, 4.5rem);
+      font-weight: 900;
+      color: black;
+      letter-spacing: 0.05em;
+    }
+
+    /* NAV / BUTTONS */
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.25rem;
+    }
+
+    nav a {
+      text-decoration: none;
+    }
+
+    .nav-btn {
+      background: black;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.75rem;
+      font-size: clamp(1rem, 2.5vw, 1.3rem);
+      font-weight: 800;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      animation: gentleFlash 2.2s infinite;
+    }
+
+    @keyframes gentleFlash {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
+    }
+
+    /* MAIN BLACK SECTION */
+    main {
+      padding: 3.5rem 1.5rem;
+      background: black;
+    }
+
+    h2 {
+      text-align: center;
+      font-size: clamp(2.2rem, 4vw, 2.8rem);
+      margin-bottom: 2.5rem;
+      font-weight: 800;
+      text-shadow: 2px 2px 4px var(--grey-shadow);
+    }
+
+    /* REVIEWS BOX */
+    .reviews-box {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem;
+      border: 1px solid #333;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 2rem;
+    }
+
+    .review {
+      padding: 1.5rem;
+      background: #111;
+      border: 1px solid #222;
+    }
+
+    .review h3 {
+      margin: 0 0 0.75rem 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      text-shadow: 1px 1px 3px var(--grey-shadow);
+    }
+
+    .review p {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.5;
+      text-shadow: 1px 1px 3px var(--grey-shadow);
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 1.75rem;
+      text-align: center;
+      background: #000;
+      border-top: 1px solid #222;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    /* FLICKER OVERLAY */
+    .flicker {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="flicker" id="flicker"></div>
+
+  <header>
+    <h1>cxb-cloud</h1>
+    <nav>
+      <a href="authors.html"><button class="nav-btn">authors</button></a>
+      <a href="cloudmag.html"><button class="nav-btn">lit-mag</button></a>
+      <a href="contact.html"><button class="nav-btn">contact</button></a>
+      <a href="publishing.html"><button class="nav-btn">publishing</button></a>
+    </nav>
+  </header>
+
+  <main>
+    <h2>Rave Reviews</h2>
+
+    <div class="reviews-box">
+      <div class="review">
+        <h3>review 1</h3>
+        <p>i love this magazine it makes me need sex</p>
+      </div>
+
+      <div class="review">
+        <h3>review 2</h3>
+        <p>i love fuck fuck oh yeah fuck</p>
+      </div>
+
+      <div class="review">
+        <h3>review 3</h3>
+        <p>i hate new york city and i am a sex worker</p>
+      </div>
+
+      <div class="review">
+        <h3>review 4</h3>
+        <p>this magazine is great i love to read it i am begging for money</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    cxb-cloud · hjksfhjdk@outlook.com
+  </footer>
+
+  
+  <script>
+
+
+  </script>
+
+</body>
+</html>
