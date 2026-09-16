@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zine Imposition Dashboard & Page Arranger</title>
+    <!-- Tailwind CSS v4 -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- pdf-lib for parsing and high-fidelity PDF synthesis -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <!-- PDF.js for rendering vector views into browser canvas elements -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        .drop-over { border-color: #3b82f6; background-color: #eff6ff; }
+        .ghost { opacity: 0.4; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800 p-4 sm:p-8 font-sans">
+
+    <div class="max-w-6xl mx-auto space-y-8">
+        <!-- Header -->
+        <header class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-black tracking-tight text-gray-900">Zine Imposition Engine</h1>
+                <p class="text-sm text-gray-500 mt-1">Compile PDFs or images into signature layouts, booklets, or raw page splits securely inside your web browser.</p>
+            </div>
+            <div id="globalStatus" class="hidden text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full font-medium border border-blue-100 items-center gap-2">
+                <span class="animate-ping inline-flex h-2 w-2 rounded-full bg-blue-400"></span>
+                <span id="statusMessage">Ready</span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Panel: Controls & Options -->
+            <div class="space-y-6 lg:col-span-1">
+                
+                <!-- 1. Input Sources -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                        <span>1. Data Ingestion</span>
+                    </h2>
+                    
+                    <!-- Pre-processing Toggles -->
+                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-200 text-xs space-y-2">
+                        <span class="block font-semibold text-gray-600">Source Formatting:</span>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="splitLengthwise" class="rounded text-blue-600 focus:ring-blue-500">
+                            <span>Split spreads/pages down the middle</span>
+                        </label>
+                    </div>
+
+                    <!-- Drag & Drop Zone -->
+                    <div id="dropZone" class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-gray-50 transition flex flex-col items-center justify-center min-h-[140px]">
+                        <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        <p class="text-xs font-semibold text-gray-700">Drop PDF or Raw Images</p>
+                        <p class="text-[10px] text-gray-400 mt-0.5">Appends cleanly onto asset index</p>
+                        <input type="file" id="fileInput" accept=".pdf,image/*" multiple class="hidden">
+                    </div>
+                </div>
+
+                <!-- 2. Target Arrangement Blueprint -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400">2. Layout Blueprint</h2>
+                    
+                    <div class="space-y-3">
+                        <label class="block text-xs font-semibold text-gray-600">Layout Format Type:</label>
+                        <select id="zineType" class="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                            <option value="8page_single">8-Page Micro Zine (Single-Sided Page + Cuts)</option>
+                            <option value="booklet_4page">Standard Booklet Multiples (4 Pages per Double-Sided Folio Sheet)</option>
+                            <option value="raw_split">Raw Independent Splits Only (No Folding Layout Adjustment)</option>
+                        </select>
+                    </div>
+
+                    <!-- Interactive Instructions Panel -->
+                    <div id="foldingInstructions" class="bg-amber-50/70 border border-amber-200 p-3.5 rounded-xl text-xs text-amber-900 space-y-1.5">
+                        <!-- Swapped dynamically by JS -->
+                    </div>
+                </div>
+
+                <!-- 4. Generation Pipeline -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400">3. Compile Output</h2>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="btnExportPdf" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs py-2.5 px-4 rounded-xl shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
+                            Export Print PDF
+                        </button>
+                        <button id="btnExportImages" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-semibold text-xs py-2.5 px-4 rounded-xl shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
+                            Export Imposed Image
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Panel: Visual Workbench / Page Organizer -->
+            <div class="lg:col-span-2 space-y-4">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                    <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <div>
+                            <h2 class="text-md font-bold text-gray-900">Visual Blueprint Workspace</h2>
+                            <p class="text-xs text-gray-500">Drag items horizontally to change sequence, delete errors, or add blank padding panels to match target bounds.</p>
+                        </div>
+                        <button id="btnAddBlank" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-gray-200 transition cursor-pointer">
+                            + Add Blank Page Pad
+                        </button>
+                    </div>
+
+                    <!-- Target Target Counter Matrix Tracker -->
+                    <div id="matrixTracker" class="bg-gray-50 px-4 py-2 rounded-xl text-xs font-medium text-gray-600 flex flex-wrap gap-4 items-center">
+                        <div>Active Canvas Count: <span id="countCurrent" class="font-bold text-blue-600">0</span></div>
+                        <div id="countRequirementText">Required count: <span id="countRequired" class="font-bold">8</span></div>
+                    </div>
+
+                    <!-- Grid Layout for Re-arranging Pages -->
+                    <div id="workbenchGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-2 min-h-[200px] max-h-[580px] overflow-y-auto bg-gray-50 rounded-xl border border-gray-100">
+                        <!-- Cards are inserted dynamically via page state changes -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // Core App Memory State Vector
+        let sourcePagesMemory = []; // Objects containing { id, type: 'img'|'pdf'|'blank', data: stringUrl/ArrayBuffer, srcPageNum, sourceWidth, sourceHeight }
+        let dragSourceIndex = null;
+
+        // UI Target Hooks
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const workbenchGrid = document.getElementById('workbenchGrid');
+        const zineTypeSelect = document.getElementById('zineType');
+        const foldingInstructions = document.getElementById('foldingInstructions');
+        const countCurrent = document.getElementById('countCurrent');
+        const countRequired = document.getElementById('countRequired');
+        const countRequirementText = document.getElementById('countRequirementText');
+        const globalStatus = document.getElementById('globalStatus');
+        const statusMessage = document.getElementById('statusMessage');
+
+        // Instructions Reference Schema Mapping
+        const instructionMap = {
+            '8page_single': {
+                requiredMultiple: 8,
+                strictMultiple: true,
+                html: `<strong>8-Page Micro-Zine Instructions:</strong> Layout scales precisely 8 pages onto a single side of one flat printed paper grid sheet. <br/>Fold sheet into quarters, cut lengthwise down middle slice line, open fold, and fold again into an interconnecting mini booklet format.`
+            },
+            'booklet_4page': {
+                requiredMultiple: 4,
+                strictMultiple: true,
+                html: `<strong>Standard 4-Page Signature Booklet Layout:</strong> Forces pages into sets of 4 mapped cleanly onto double-sided folio printing. Imposition organizes configurations (e.g., Page 4 & 1 backed by Page 2 & 3) so nested center lines preserve sequence.`
+            },
+            'raw_split': {
+                requiredMultiple: 1,
+                strictMultiple: false,
+                html: `<strong>Raw Split Mapping:</strong> No special zine signatures or alignment adjustments are performed. It simply chunks documents into individual standalone single pages cleanly.`
+            }
+        };
+
+        // Initialize UI Configuration Matrix
+        function syncLayoutBlueprintSettings() {
+            const selected = zineTypeSelect.value;
+            foldingInstructions.innerHTML = instructionMap[selected].html;
+            if (instructionMap[selected].strictMultiple) {
+                countRequirementText.classList.remove('hidden');
+                countRequired.innerText = instructionMap[selected].requiredMultiple;
+            } else {
+                countRequirementText.classList.add('hidden');
+            }
+            renderWorkbenchUI();
+        }
+        zineTypeSelect.addEventListener('change', syncLayoutBlueprintSettings);
+
+        // Status Feedback pipeline
+        function setStatus(msg, working = true) {
+            if (working) {
+                globalStatus.classList.remove('hidden');
+                globalStatus.classList.add('flex');
+                statusMessage.innerText = msg;
+            } else {
+                globalStatus.classList.add('hidden');
+                globalStatus.classList.remove('flex');
+            }
+        }
+
+        // File Selection Handlers
+        dropZone.addEventListener('click', () => fileInput.click());
+        ['dragenter', 'dragover'].forEach(n => dropZone.addEventListener(n, (e) => { e.preventDefault(); dropZone.classList.add('drop-over'); }));
+        ['dragleave', 'drop'].forEach(n => dropZone.addEventListener(n, (e) => { e.preventDefault(); dropZone.classList.remove('drop-over'); }));
+        
+        dropZone.addEventListener('drop', (e) => {
+            if(e.dataTransfer.files.length > 0) handleIngestedFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', (e) => {
+            if(e.target.files.length > 0) handleIngestedFiles(e.target.files);
+        });
+
+        async function handleIngestedFiles(files) {
+            setStatus("Ingesting Assets...");
+            const splitChecked = document.getElementById('splitLengthwise').checked;
+
+            for (let file of files) {
+                if (file.type === "application/pdf") {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+                    
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const viewport = page.getViewport({ scale: 1.5 });
+                        
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+                        if (splitChecked) {
+                            // Extract two canvas frames from split down center line
+                            const halfWidth = canvas.width / 2;
+                            
+                            // Left Side Panel
+                            const cL = document.createElement('canvas'); cL.width = halfWidth; cL.height = canvas.height;
+                            cL.getContext('2d').drawImage(canvas, 0, 0, halfWidth, canvas.height, 0, 0, halfWidth, canvas.height);
+                            sourcePagesMemory.push({ id: crypto.randomUUID(), type: 'img', data: cL.toDataURL('image/jpeg', 0.85), sourceWidth: halfWidth, sourceHeight: canvas.height });
+
+                            // Right Side Panel
+                            const cR = document.createElement('canvas'); cR.width = halfWidth; cR.height = canvas.height;
+                            cR.getContext('2d').drawImage(canvas, halfWidth, 0, halfWidth, canvas.height, 0, 0, halfWidth, canvas.height);
+                            sourcePagesMemory.push({ id: crypto.randomUUID(), type: 'img', data: cR.toDataURL('image/jpeg', 0.85), sourceWidth: halfWidth, sourceHeight: canvas.height });
+                        } else {
+                            sourcePagesMemory.push({ id: crypto.randomUUID(), type: 'img', data: canvas.toDataURL('image/jpeg', 0.85), sourceWidth: canvas.width, sourceHeight: canvas.height });
+                        }
+                    }
+                } else if (file.type.startsWith("image/")) {
+                    const dataUrl = await new Promise(r => { const f = new FileReader(); f.onload = e => r(e.target.result); f.readAsDataURL(file); });
+                    const img = new Image();
+                    await new Promise(r => { img.onload = r; img.src = dataUrl; });
+
+                    if (splitChecked) {
+                        const halfWidth = img.width / 2;
+                        const cL = document.createElement('canvas'); cL.width = halfWidth; cL.height = img.height;
+                        cL.getContext('2d').drawImage(img, 0, 0, halfWidth, img.height, 0, 0, halfWidth, img.height);
+                        sourcePagesMemory.push({ id: crypto.randomUUID(), type: 'img', data: cL.toDataURL('image/jpeg', 0.85), sourceWidth: halfWidth, sourceHeight: img.height });
+
+                        const cR = document.createElement('canvas'); cR.width = halfWidth; cR.height = img.height;
+                        cR.getContext('2d').drawImage(img, halfWidth, 0, halfWidth, img.height, 0, 0, halfWidth, img.height);
+                        sourcePagesMemory.push({ id: crypto.randomUUID(), type: 'img', data: cR.toDataURL('image/jpeg', 0.85), sourceWidth: halfWidth, sourceHeight: img.height });
+                    } else {
+                        sourcePagesMemory.push({ id: crypto.randomUUID(), type: 'img', data: dataUrl, sourceWidth: img.width, sourceHeight: img.height });
+                    }
+                }
+            }
+            setStatus("", false);
+            renderWorkbenchUI();
+        }
+
+        document.getElementById('btnAddBlank').addEventListener('click', () => {
+            sourcePagesMemory.push({ id: crypto.randomUUID(), type: 'blank', data: null, sourceWidth: 600, sourceHeight: 800 });
+            renderWorkbenchUI();
+        });
+
+        // Dynamic HTML Drag and Drop Sort UI Rendering Pipeline
+        function renderWorkbenchUI() {
+            workbenchGrid.innerHTML = '';
+            countCurrent.innerText = sourcePagesMemory.length;
+            
+            // Validate targeting multiples limits
+            const selType = zineTypeSelect.value;
+            if (instructionMap[selType].strictMultiple) {
+                const targetMult = instructionMap[selType].requiredMultiple;
+                const isInvalid = (sourcePagesMemory.length % targetMult !== 0 || sourcePagesMemory.length === 0);
+                countCurrent.className = isInvalid ? "font-bold text-red-600 animate-pulse" : "font-bold text-green-600";
+            } else {
+                countCurrent.className = "font-bold text-blue-600";
+            }
+
+            sourcePagesMemory.forEach((page, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-2 rounded-xl border border-gray-200 shadow-sm relative group cursor-move flex flex-col justify-between";
+                card.draggable = true;
+                
+                // Embedded Thumbnail Render Frame
+                const thumb = document.createElement('div');
+                thumb.className = "w-full aspect-[3/4] bg-gray-100 rounded-lg flex items-center justify-center text-center text-[10px] text-gray-400 overflow-hidden relative border border-gray-100 mb-2";
+                
+                if (page.type === 'blank') {
+                    thumb.innerHTML = `<span class="uppercase tracking-wider font-semibold text-gray-300">Blank Page Pad</span>`;
+                } else {
+                    thumb.innerHTML = `<img src="${page.data}" class="w-full h-full object-contain" />`;
+                }
+
+                // Sequence Identifier Badge UI element
+                const badge = document.createElement('div');
+                badge.className = "absolute top-3 left-3 bg-gray-900/80 backdrop-blur-xs text-white text-[10px] font-bold px-1.5 py-0.5 rounded";
+                badge.innerText = idx + 1;
+                card.appendChild(badge);
+
+                // Quick Action Clear Truncator Button Component
+                const delBtn = document.createElement('button');
+                delBtn.className = "absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition shadow-sm cursor-pointer";
+                delBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>`;
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    sourcePagesMemory.splice(idx, 1);
+                    renderWorkbenchUI();
+                });
+                card.appendChild(delBtn);
+
+                card.appendChild(thumb);
+
+                // Add Type Meta Labels below preview frames
+                const label = document.createElement('div');
+                label.className = "text-[10px] font-medium text-gray-500 text-center uppercase tracking-wide truncate";
+                label.innerText = page.type === 'blank' ? 'Padding Block' : 'Page Surface';
+                card.appendChild(label);
+
+                // Drag/Drop Event Listeners for HTML5 drag and drop matrix rearrangement
+                card.addEventListener('dragstart', () => { dragSourceIndex = idx; card.classList.add('ghost'); });
+                card.addEventListener('dragend', () => card.classList.remove('ghost'));
+                card.addEventListener('dragover', (e) => e.preventDefault());
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if (dragSourceIndex !== null && dragSourceIndex !== idx) {
+                        const targetItem = sourcePagesMemory[dragSourceIndex];
+                        sourcePagesMemory.splice(dragSourceIndex, 1);
+                        sourcePagesMemory.splice(idx, 0, targetItem);
+                        renderWorkbenchUI();
+                    }
+                });
+
+                workbenchGrid.appendChild(card);
+            });
+        }
+
+        // Output Matrix Compilers
+        document.getElementById('btnExportPdf').addEventListener('click', async () => {
+            if (sourcePagesMemory.length === 0) return alert("Upload asset sequences into your active workspace before running imposition execution.");
+            setStatus("Compiling PDF...");
+            
+            try {
+                const outPdf = await PDFLib.PDFDocument.create();
+                const selType = zineTypeSelect.value;
+
+                if (selType === '8page_single') {
+                    if (sourcePagesMemory.length % 8 !== 0) {
+                        setStatus("", false);
+                        return alert("8-Page Micro-Zines map pages onto sets of 8. Pad your layout framework with blank blocks.");
+                    }
+                    
+                    // Render custom layout mapping to a master canvas coordinate plane
+                    for(let offset=0; offset < sourcePagesMemory.length; offset += 8) {
+                        const canvas = await generate8PageImpositionCanvas(offset);
+                        const imgUrl = canvas.toDataURL('image/jpeg', 0.95);
+                        const responseBytes = await fetch(imgUrl).then(res => res.arrayBuffer());
+                        const embeddedImage = await outPdf.embedJpg(responseBytes);
+                        
+                        const page = outPdf.addPage([canvas.width, canvas.height]);
+                        page.drawImage(embeddedImage, { x: 0, y: 0, width: canvas.width, height: canvas.height });
+                    }
+                } else if (selType === 'booklet_4page') {
+                    if (sourcePagesMemory.length % 4 !== 0) {
+                        setStatus("", false);
+                        return alert("Standard folio signatures require multiples of 4 pages. Pad your layout framework with blank blocks.");
+                    }
+                    
+                    // Standard Booklet Imposition Scheme (e.g. 4, 1 then 2, 3)
+                    const total = sourcePagesMemory.length;
+                    const numSheets = total / 4;
+                    
+                    for (let i = 0; i < numSheets; i++) {
+                        const leftIndex_front = total - 1 - i;
+                        const rightIndex_front = i;
+                        const canvasFront = await generateDoublePageSpreadCanvas(leftIndex_front, rightIndex_front);
+                        const frontBytes = await fetch(canvasFront.toDataURL('image/jpeg', 0.95)).then(res => res.arrayBuffer());
+                        const imgFront = await outPdf.embedJpg(frontBytes);
+                        const pageF = outPdf.addPage([canvasFront.width, canvasFront.height]);
+                        pageF.drawImage(imgFront, { x: 0, y: 0, width: canvasFront.width, height: canvasFront.height });
+
+                        const leftIndex_back = i + 1;
+                        const rightIndex_back = total - 2 - i;
+                        const canvasBack = await generateDoublePageSpreadCanvas(leftIndex_back, rightIndex_back);
+                        const backBytes = await fetch(canvasBack.toDataURL('image/jpeg', 0.95)).then(res => res.arrayBuffer());
+                        const imgBack = await outPdf.embedJpg(backBytes);
+                        const pageB = outPdf.addPage([canvasBack.width, canvasBack.height]);
+                        pageB.drawImage(imgBack, { x: 0, y: 0, width: canvasBack.width, height: canvasBack.height });
+                    }
+                } else {
+                    // Raw Independent page splits pipeline
+                    for (let item of sourcePagesMemory) {
+                        const page = outPdf.addPage([item.sourceWidth, item.sourceHeight]);
+                        if (item.type !== 'blank') {
+                            const bytes = await fetch(item.data).then(res => res.arrayBuffer());
+                            const embedded = await outPdf.embedJpg(bytes);
+                            page.drawImage(embedded, { x: 0, y: 0, width: item.sourceWidth, height: item.sourceHeight });
+                        }
+                    }
+                }
+
+                const pdfBytes = await outPdf.save();
+                triggerBrowserDownload(new Blob([pdfBytes], { type: "application/pdf" }), `zine_imposed_layout.pdf`);
+            } catch(e) {
+                console.error(e);
+                alert("An error occurred while compiling the PDF.");
+            }
+            setStatus("", false);
+        });
+
+        document.getElementById('btnExportImages').addEventListener('click', async () => {
+            if (sourcePagesMemory.length === 0) return alert("Upload asset sequences into your active workspace before running imposition execution.");
+            setStatus("Rendering Composite Layout Canvas...");
+            
+            const selType = zineTypeSelect.value;
+            if (selType === '8page_single') {
+                if (sourcePagesMemory.length % 8 !== 0) { setStatus("", false); return alert("Imposition grid rules require matching exactly multiples of 8."); }
+                const canvas = await generate8PageImpositionCanvas(0);
+                triggerBrowserDownload(await fetch(canvas.toDataURL('image/jpeg', 0.95)).then(r => r.blob()), 'micro_zine_sheet_front.jpg');
+            } else if (selType === 'booklet_4page') {
+                if (sourcePagesMemory.length % 4 !== 0) { setStatus("", false); return alert("Standard booklet margins require sets matching exact multiples of 4."); }
+                const canvas = await generateDoublePageSpreadCanvas(sourcePagesMemory.length - 1, 0);
+                triggerBrowserDownload(await fetch(canvas.toDataURL('image/jpeg', 0.95)).then(r => r.blob()), 'booklet_signature_spread.jpg');
+            } else {
+                // If raw split mode, export the first active page view
+                if (sourcePagesMemory.type === 'blank') {
+                    alert("Cannot export a blank layout card as a standalone raw picture.");
+                } else {
+                    triggerBrowserDownload(await fetch(sourcePagesMemory.data).then(r => r.blob()), 'raw_extracted_page_1.jpg');
+                }
+            }
+            setStatus("", false);
+        });
+
+        // 8-Page Signature Logic Engine
+        async function generate8PageImpositionCanvas(offsetIndex) {
+            const outC = document.createElement('canvas');
+            // Standard high-resolution US Letter landscape canvas proportions
+            outC.width = 3300; 
+            outC.height = 2550;
+            const ctx = outC.getContext('2d');
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, outC.width, outC.height);
+
+            const gridW = outC.width / 4;
+            const gridH = outC.height / 2;
+
+            // Micro-Zine Classical Mapping Index Rule Config (Handles 180° rotation bounds cleanly)
+            // Top row (Left to Right): Pages inverted upside down
+            // Bottom row (Left to Right): Pages oriented standard rightside up
+            const targetMap = [
+                { sourceIdx: offsetIndex + 7, gridX: 0, gridY: 0, invert: true }, // Page 8
+                { sourceIdx: offsetIndex + 0, gridX: 1, gridY: 0, invert: true }, // Page 1
+                { sourceIdx: offsetIndex + 1, gridX: 2, gridY: 0, invert: true }, // Page 2
+                { sourceIdx: offsetIndex + 2, gridX: 3, gridY: 0, invert: true }, // Page 3
+                { sourceIdx: offsetIndex + 6, gridX: 0, gridY: 1, invert: false },// Page 7
+                { sourceIdx: offsetIndex + 5, gridX: 1, gridY: 1, invert: false },// Page 6
+                { sourceIdx: offsetIndex + 4, gridX: 2, gridY: 1, invert: false },// Page 5
+                { sourceIdx: offsetIndex + 3, gridX: 3, gridY: 1, invert: false } // Page 4
+            ];
+
+            for (let rule of targetMap) {
+                const item = sourcePagesMemory[rule.sourceIdx];
+                if (!item || item.type === 'blank') continue;
+
+                const img = new Image();
+                await new Promise(r => { img.onload = r; img.src = item.data; });
+
+                ctx.save();
+                // Move coordinate matrix focus directly to midpoints of matching grid cell panels
+                const targetCenterX = (rule.gridX * gridW) + (gridW / 2);
+                const targetCenterY = (rule.gridY * gridH) + (gridH / 2);
+                ctx.translate(targetCenterX, targetCenterY);
+
+                if (rule.invert) {
+                    ctx.rotate(Math.PI); // Rotate 180 degrees for micro-folding upside down requirements
+                }
+
+                // Render image down using clean object fit proportions inside localized box widths
+                const scale = Math.min(gridW / img.width, gridH / img.height);
+                const drawW = img.width * scale;
+                const drawH = img.height * scale;
+                ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+                ctx.restore();
+            }
+
+            // Optional structural layout guideline lines overlay for folding accuracy
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.lineWidth = 4;
+            ctx.setLineDash();
+            // Horizontal folding divide coordinate line
+            ctx.beginPath(); ctx.moveTo(0, gridH); ctx.lineTo(outC.width, gridH); ctx.stroke();
+            // Vertical bounding panels ticks lines
+            for(let c=1; c<4; c++) {
+                ctx.beginPath(); ctx.moveTo(c * gridW, 0); ctx.lineTo(c * gridW, outC.height); ctx.stroke();
+            }
+
+            return outC;
+        }
+
+        // Standard Double Page Booklet Signature Engine
+        async function generateDoublePageSpreadCanvas(leftIdx, rightIdx) {
+            const outC = document.createElement('canvas');
+            outC.width = 3300; 
+            outC.height = 2550;
+            const ctx = outC.getContext('2d');
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, outC.width, outC.height);
+
+            const sideW = outC.width / 2;
+            const targetIndices = [
+                { idx: leftIdx, xOffset: 0 },
+                { idx: rightIdx, xOffset: sideW }
+            ];
+
+            for (let pair of targetIndices) {
+                const item = sourcePagesMemory[pair.idx];
+                if (!item || item.type === 'blank') continue;
+
+                const img = new Image();
+                await new Promise(r => { img.onload = r; img.src = item.data; });
+
+                ctx.save();
+                const targetCenterX = pair.xOffset + (sideW / 2);
+                const targetCenterY = outC.height / 2;
+                ctx.translate(targetCenterX, targetCenterY);
+
+                const scale = Math.min(sideW / img.width, outC.height / img.height);
+                const drawW = img.width * scale;
+                const drawH = img.height * scale;
+                ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+                ctx.restore();
+            }
+
+            return outC;
+        }
+
+        function triggerBrowserDownload(blob, filename) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+        }
+
+        // Run UI sync on load
+        syncLayoutBlueprintSettings();
+    </script>
+</body>
+</html>
