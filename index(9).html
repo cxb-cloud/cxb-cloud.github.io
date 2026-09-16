@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Production Zine Imposition Engine</title>
+    <!-- Tailwind CSS v4 Blueprint -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Dependencies for PDF manipulation and rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <style>
+        .asset-card:hover .delete-btn { opacity: 1; }
+        .grid-cell-ghost { background-color: #f3f4f6; border: 2px dashed #cbd5e1; }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-100 font-sans antialiased p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-8">
+        <!-- Header banner -->
+        <header class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-black tracking-tight text-white flex items-center gap-2">
+                    <span>✂️</span> Zine Imposition Engine <span class="text-xs bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-bold px-2 py-0.5 rounded">PRO v2.0</span>
+                </h1>
+                <p class="text-sm text-slate-400 mt-1">Drop documents, manipulate page streams, and automatically generate rotated print-ready impositions.</p>
+            </div>
+            <div id="statusBadge" class="bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl flex items-center gap-3 text-xs text-slate-300">
+                <span id="statusIndicator" class="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
+                <span id="statusText">System Standing By</span>
+            </div>
+        </header>
+
+        <!-- Main Workspace split -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- CONTROLS AND LAYOUT SPECIFICATIONS (LEFT PANEL) -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Data Gathering Core -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg space-y-4">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <span class="bg-indigo-500 text-white rounded-md h-5 w-5 flex items-center justify-center text-[10px]">1</span>
+                        Data Ingestion Pipeline
+                    </h2>
+                    
+                    <div id="dropZone" class="border-2 border-dashed border-slate-600 hover:border-indigo-500 hover:bg-slate-750 rounded-xl p-8 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[160px] bg-slate-900/50">
+                        <span class="text-3xl mb-2">📥</span>
+                        <p class="text-xs font-bold text-slate-200">Drag & Drop Multi-Page PDF Here</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Processes vector channels & isolates individual page assets directly in-browser</p>
+                        <input type="file" id="pdfFileInput" accept=".pdf" class="hidden">
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button id="addBlankBtn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition border border-slate-600 flex items-center justify-center gap-2">
+                            ➕ Insert Blank Page
+                        </button>
+                        <button id="clearAllBtn" class="bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 font-semibold text-xs py-2.5 px-4 rounded-xl transition border border-rose-900/50">
+                            Clear Deck
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Scheme Configuration Selector -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg space-y-4">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <span class="bg-indigo-500 text-white rounded-md h-5 w-5 flex items-center justify-center text-[10px]">2</span>
+                        Structural Imposition Mapping Matrix
+                    </h2>
+                    
+                    <div class="space-y-3">
+                        <label class="block text-xs font-bold text-slate-400">Target Print Blueprint Architecture:</label>
+                        <select id="blueprintFormat" class="w-full text-sm bg-slate-900 border border-slate-700 text-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="8page_micro">8-Page Micro Zine (Single-Sided + Primary Horizontal Center Slit)</option>
+                            <option value="16page_micro_mini">16-Page Micro-Mini Single-Sided (4x4 Multidirectional Fold Block)</option>
+                            <option value="28page_double_booklet">28-Page Double-Sided Booklet (Single Paper Signature Layout)</option>
+                            <option value="61page_micro_double">61-Page Micro-Mini Double-Sided (8x8 Serpentine Single-Paper Grid)</option>
+                            <option value="fancy_flapbook">Fancy Flapbook Structure (Inward Double Door Fold)</option>
+                            <option value="fancy_t_cut">Fancy T-Cut Booklet Layout (Double Axis Inverted Flaps)</option>
+                            <option value="mini_booklet">Mini Booklet Signature (2x4 Landscape Block Signature)</option>
+                            <option value="quarter_zine">Quarter-Page Folded Zine (2x2 Multi-Axis Flip Layout)</option>
+                            <option value="normal_accordion">Continuous Strip Normal Accordion (Uniform Alignment)</option>
+                            <option value="8page_zfold">8-Page Fan Fold Z-Architecture (Alternating Vector Run)</option>
+                            <option value="tetraflexagon">Square Tetraflexagon Puzzle Layout (Cyclic Internal Panel Mapping)</option>
+                        </select>
+                    </div>
+
+                    <div id="blueprintStats" class="bg-slate-900/60 border border-slate-700/60 p-3 rounded-xl text-[11px] text-slate-400 space-y-1">
+                        <!-- Filled by layout engines -->
+                    </div>
+                </div>
+
+                <!-- Vector Guide Settings -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg space-y-3">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">3. Print Guide Overlays</h2>
+                    <div class="space-y-2 text-xs">
+                        <label class="flex items-center gap-2.5 cursor-pointer text-slate-300">
+                            <input type="checkbox" id="renderFolds" checked class="h-4 w-4 rounded border-slate-700 text-indigo-600 bg-slate-900 focus:ring-indigo-500">
+                            <span>Draw structural dashed folding lines</span>
+                        </label>
+                        <label class="flex items-center gap-2.5 cursor-pointer text-slate-300">
+                            <input type="checkbox" id="renderCuts" checked class="h-4 w-4 rounded border-slate-700 text-indigo-600 bg-slate-900 focus:ring-indigo-500">
+                            <span>Draw solid red cutting slice guides</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Production Pipeline Compilation -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg space-y-3">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">4. Run Matrix Engine</h2>
+                    <button id="generatePdfBtn" class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm py-4 px-6 rounded-xl shadow-lg transition duration-200 transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2">
+                        🚀 Compile & Export Production PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- MANAGEMENT DECK STREAM (RIGHT PANEL) -->
+            <div class="lg:col-span-8 flex flex-col space-y-4">
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-lg flex-1 flex flex-col space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-4">
+                        <div>
+                            <h2 class="text-base font-bold text-white tracking-tight">Active Page Ingestion Deck</h2>
+                            <p class="text-xs text-slate-400">Rearrange tiles to balance internal sheet distributions.</p>
+                        </div>
+                        <span id="pageCountBadge" class="bg-indigo-950 text-indigo-400 font-bold px-3 py-1 rounded-full text-xs border border-indigo-800/60">0 Pages Loaded</span>
+                    </div>
+
+                    <!-- Draggable Layout Target -->
+                    <div id="deckContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-4 overflow-y-auto max-h-[600px] p-2 bg-slate-900/40 rounded-xl border border-slate-700/50 min-h-[300px] items-start">
+                        <!-- Loaded page cards drop here natively -->
+                        <div id="deckPlaceholder" class="col-span-full text-center py-16 text-slate-500 text-xs flex flex-col items-center justify-center space-y-2">
+                            <span>📋</span>
+                            <span>No pages currently cached in workspace. Drop a PDF to begin.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Wire up third party dependencies
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        // State Machine
+        let activePageStream = []; // Holds objects: { id, type: 'pdf'|'blank', rawPageObj, originalIndex, bytes }
+        let loadedPdfBytes = null;
+        let draggedIndex = null;
+
+        // Configuration Blueprints for Imposition (Cols, Rows, Page Target Array [pageIndex0-based, rotationDeg])
+        const Blueprints = {
+            '8page_micro': {
+                name: "8-Page Micro Zine (Single Sheet)",
+                cols: 4, rows: 2, targetPages: 8,
+                layout: [
+                    { idx: 0, rot: 180 }, { idx: 7, rot: 180 }, { idx: 6, rot: 180 }, { idx: 5, rot: 180 },
+                    { idx: 1, rot: 0 },   { idx: 2, rot: 0 },   { idx: 3, rot: 0 },   { idx: 4, rot: 0 }
+                ],
+                cuts: [{x1: 0.25, y1: 0.5, x2: 0.75, y2: 0.5}], 
+                folds: [{x1: 0.25, y1: 0, x2: 0.25, y2: 1}, {x1: 0.5, y1: 0, x2: 0.5, y2: 1}, {x1: 0.75, y1: 0, x2: 0.75, y2: 1}, {x1: 0, y1: 0.5, x2: 1, y2: 0.5}]
+            },
+            '16page_micro_mini': {
+                name: "16-Page Micro-Mini",
+                cols: 4, rows: 4, targetPages: 16,
+                layout: [
+                    { idx: 0, rot: 90 },  { idx: 15, rot: 270 }, { idx: 14, rot: 90 },  { idx: 13, rot: 270 },
+                    { idx: 1, rot: 90 },  { idx: 2, rot: 270 },  { idx: 3, rot: 90 },   { idx: 4, rot: 270 },
+                    { idx: 8, rot: 0 },   { idx: 7, rot: 180 },  { idx: 6, rot: 0 },    { idx: 5, rot: 180 },
+                    { idx: 9, rot: 0 },   { idx: 10, rot: 180 }, { idx: 11, rot: 0 },   { idx: 12, rot: 180 }
+                ],
+                cuts: [{x1: 0, y1: 0.5, x2: 1, y2: 0.5}],
+                folds: [{x1: 0.25, y1: 0, x2: 0.25, y2: 1}, {x1: 0.5, y1: 0, x2: 0.5, y2: 1}, {x1: 0.75, y1: 0, x2: 0.75, y2: 1}]
+            },
+            '28page_double_booklet': {
+                name: "28-Page Booklet Signature",
+                cols: 2, rows: 2, targetPages: 28, isBooklet: true,
+                layout: []
+            },
+            '61page_micro_double': {
+                name: "64-Page Micro Sheet Matrix",
+                cols: 8, rows: 8, targetPages: 64,
+                layout: Array.from({length: 64}, (_, i) => ({ idx: i, rot: (Math.floor(i/8) % 2 === 0) ? 0 : 180 })),
+                cuts: [{x1: 0, y1: 0.25, x2: 1, y2: 0.25}, {x1: 0, y1: 0.75, x2: 1, y2: 0.75}],
+                folds: Array.from({length: 7}, (_, i) => ({x1: (i+1)*0.125, y1: 0, x2: (i+1)*0.125, y2: 1}))
+            },
+            'fancy_flapbook': {
+                name: "Fancy Flapbook Structure",
+                cols: 4, rows: 2, targetPages: 8,
+                layout: [
+                    { idx: 4, rot: 0 }, { idx: 0, rot: 0 }, { idx: 1, rot: 0 }, { idx: 5, rot: 0 },
+                    { idx: 7, rot: 180 }, { idx: 3, rot: 180 }, { idx: 2, rot: 180 }, { idx: 6, rot: 180 }
+                ],
+                cuts: [], folds: [{x1: 0.25, y1: 0, x2: 0.25, y2: 1}, {x1: 0.75, y1: 0, x2: 0.75, y2: 1}]
+            },
+            'fancy_t_cut': {
+                name: "Fancy T-Cut Blueprint",
+                cols: 4, rows: 2, targetPages: 8,
+                layout: [
+                    { idx: 0, rot: 90 }, { idx: 1, rot: 270 }, { idx: 2, rot: 90 }, { idx: 3, rot: 270 },
+                    { idx: 7, rot: 90 }, { idx: 6, rot: 270 }, { idx: 5, rot: 90 }, { idx: 4, rot: 270 }
+                ],
+                cuts: [{x1: 0.25, y1: 0.5, x2: 0.75, y2: 0.5}, {x1: 0.5, y1: 0, x2: 0.5, y2: 0.5}],
+                folds: [{x1: 0.25, y1: 0, x2: 0.25, y2: 1}, {x1: 0.75, y1: 0, x2: 0.75, y2: 1}]
+            },
+            'mini_booklet': {
+                name: "Mini Booklet Signature",
+                cols: 4, rows: 2, targetPages: 8,
+                layout: [
+                    { idx: 4, rot: 180 }, { idx: 3, rot: 180 }, { idx: 2, rot: 180 }, { idx: 5, rot: 180 },
+                    { idx: 1, rot: 0 },   { idx: 6, rot: 0 },   { idx: 7, rot: 0 },   { idx: 0, rot: 0 }
+                ],
+                cuts: [], folds: [{x1: 0.5, y1: 0, x2: 0.5, y2: 1}, {x1: 0, y1: 0.5, x2: 1, y2: 0.5}]
+            },
+            'quarter_zine': {
+                name: "Quarter Page Folded Zine",
+                cols: 2, rows: 2, targetPages: 4,
+                layout: [
+                    { idx: 2, rot: 180 }, { idx: 1, rot: 180 },
+                    { idx: 3, rot: 0 },   { idx: 0, rot: 0 }
+                ],
+                cuts: [], folds: [{x1: 0.5, y1: 0, x2: 0.5, y2: 1}, {x1: 0, y1: 0.5, x2: 1, y2: 0.5}]
+            },
+            'normal_accordion': {
+                name: "Continuous Strip Accordion",
+                cols: 4, rows: 1, targetPages: 4,
+                layout: [
+                    { idx: 0, rot: 0 }, { idx: 1, rot: 0 }, { idx: 2, rot: 0 }, { idx: 3, rot: 0 }
+                ],
+                cuts: [], folds: [{x1: 0.25, y1: 0, x2: 0.25, y2: 1}, {x1: 0.5, y1: 0, x2: 0.5, y2: 1}, {x1: 0.75, y1: 0, x2: 0.75, y2: 1}]
+            },
+            '8page_zfold': {
+                name: "8-Page Fan Fold Z-Architecture",
+                cols: 4, rows: 2, targetPages: 8,
+                layout: [
+                    { idx: 0, rot: 0 }, { idx: 1, rot: 0 }, { idx: 2, rot: 0 }, { idx: 3, rot: 0 },
+                    { idx: 7, rot: 180 }, { idx: 6, rot: 180 }, { idx: 5, rot: 180 }, { idx: 4, rot: 180 }
+                ],
+                cuts: [{x1: 0, y1: 0.5, x2: 1, y2: 0.5}], folds: [{x1: 0.25, y1: 0, x2: 0.25, y2: 1}, {x1: 0.5, y1: 0, x2: 0.5, y2: 1}]
+            },
+            'tetraflexagon': {
+                name: "Square Tetraflexagon Puzzle",
+                cols: 4, rows: 4, targetPages: 16,
+                layout: Array.from({length: 16}, (_, i) => ({ idx: i, rot: 0 })),
+                cuts: [{x1: 0.25, y1: 0.25, x2: 0.75, y2: 0.25}, {x1: 0.25, y1: 0.75, x2: 0.75, y2: 0.75}],
+                folds: [{x1: 0.25, y1: 0, x2: 0.25, y2: 1}, {x1: 0.75, y1: 0, x2: 0.75, y2: 1}]
+            }
+        };
+
+        // DOM Element Cache
+        const dropZone = document.getElementById('dropZone');
+        const pdfFileInput = document.getElementById('pdfFileInput');
+        const deckContainer = document.getElementById('deckContainer');
+        const deckPlaceholder = document.getElementById('deckPlaceholder');
+        const pageCountBadge = document.getElementById('pageCountBadge');
+        const blueprintFormat = document.getElementById('blueprintFormat');
+        const blueprintStats = document.getElementById('blueprintStats');
+        const addBlankBtn = document.getElementById('addBlankBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+        const generatePdfBtn = document.getElementById('generatePdfBtn');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+
+        function updateBlueprintStats() {
+            const bp = Blueprints[blueprintFormat.value];
+            blueprintStats.innerHTML = `
+                <div><strong>Grid Map:</strong> \${bp.cols} columns × \${bp.rows} rows</div>
+                <div><strong>Minimum Running Signature:</strong> \${bp.targetPages} Page Units</div>
+                <div><strong>Calculation Matrix:</strong> Local Hardware Array Transform</div>
+            `;
+            evaluateStreamRequirements();
+        }
+        blueprintFormat.addEventListener('change', updateBlueprintStats);
+        updateBlueprintStats();
+
+        function logStatus(text, type = 'info') {
+            statusText.textContent = text;
+            statusIndicator.className = "h-2.5 w-2.5 rounded-full shadow-[0_0_8px]";
+            if(type === 'error') {
+                statusIndicator.classList.add('bg-rose-500', 'shadow-rose-500');
+            } else if (type === 'working') {
+                statusIndicator.classList.add('bg-amber-500', 'shadow-amber-500');
+            } else {
+                statusIndicator.classList.add('bg-emerald-500', 'shadow-emerald-500');
+            }
+        }
+
+        dropZone.addEventListener('click', () => pdfFileInput.click());
+        pdfFileInput.addEventListener('change', (e) => {
+            if(e.target.files.length > 0) handlePdfFile(e.target.files);
+        });
+
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500', 'bg-slate-800'); });
+        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('border-indigo-500', 'bg-slate-800'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-indigo-500', 'bg-slate-800');
+            if(e.dataTransfer.files.length > 0) handlePdfFile(e.dataTransfer.files);
+        });
+
+        async function handlePdfFile(files) {
+            try {
+                logStatus("Reading vector headers...", "working");
+                const file = files[0];
+                const arrayBuffer = await file.arrayBuffer();
+                loadedPdfBytes = arrayBuffer;
+                
+                const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                logStatus(`Isolating \${pdf.numPages} streams...`, "working");
+
+                for(let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({scale: 0.3});
+                    
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    
+                    await page.render({canvasContext: ctx, viewport: viewport}).promise;
+                    
+                    activePageStream.push({
+                        id: 'page_' + Math.random().toString(36).substr(2, 9),
+                        type: 'pdf',
+                        thumb: canvas.toDataURL(),
+                        originalIndex: i - 1
+                    });
+                }
+                
+                renderDeck();
+                logStatus("Ingestion pipeline stable.");
+            } catch (err) {
+                console.error(err);
+                logStatus("Ingestion pipeline failed.", "error");
+            }
+        }
+
+        addBlankBtn.addEventListener('click', () => {
+            activePageStream.push({
+                id: 'blank_' + Math.random().toString(36).substr(2, 9),
+                type: 'blank',
+                thumb: null,
+                originalIndex: null
+            });
+            renderDeck();
+        });
+
+        clearAllBtn.addEventListener('click', () => {
+            activePageStream = [];
+            loadedPdfBytes = null;
+            renderDeck();
+            logStatus("Deck cleared.");
+        });
+
+        function evaluateStreamRequirements() {
+            const bp = Blueprints[blueprintFormat.value];
+            const currentCount = activePageStream.length;
+            pageCountBadge.textContent = `\${currentCount} Pages Loaded`;
+            
+            if(currentCount === 0) return;
+
+            if(bp.isBooklet) {
+                if(currentCount % 4 !== 0) {
+                    logStatus(`Booklet alert: Count (\${currentCount}) must be a multiple of 4.`, "working");
+                }
+            } else {
+                if(currentCount < bp.targetPages) {
+                    logStatus(`Underflow alert: Need \${bp.targetPages - currentCount} more pages.`, "working");
+                }
+            }
+        }
+
+        function renderDeck() {
+            const elements = deckContainer.querySelectorAll('.asset-card');
+            elements.forEach(el => el.remove());
+
+            if(activePageStream.length === 0) {
+                deckPlaceholder.classList.remove('hidden');
+                pageCountBadge.textContent = "0 Pages Loaded";
+                return;
+            }
+            deckPlaceholder.classList.add('hidden');
+
+            activePageStream.forEach((pageObj, idx) => {
+                const card = document.createElement('div');
+                card.className = "asset-card relative bg-slate-800 border border-slate-700 p-2 rounded-xl flex flex-col items-center gap-2 cursor-move select-none transition hover:border-indigo-400";
+                card.setAttribute('draggable', 'true');
+                card.dataset.index = idx;
+
+                const badge = document.createElement('span');
+                badge.className = "absolute top-1 left-1 bg-slate-900/80 text-slate-300 font-black text-[10px] px-1.5 py-0.5 rounded border border-slate-700";
+                badge.textContent = idx + 1;
+                card.appendChild(badge);
+
+                const delBtn = document.createElement('button');
+                delBtn.className = "delete-btn absolute top-1 right-1 opacity-0 bg-rose-600 hover:bg-rose-500 text-white rounded h-5 w-5 flex items-center justify-center font-bold text-xs transition duration-150 shadow-md";
+                delBtn.innerHTML = "×";
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    activePageStream.splice(idx, 1);
+                    renderDeck();
+                });
+                card.appendChild(delBtn);
+
+                const thumbWrapper = document.createElement('div');
+                thumbWrapper.className = "w-full aspect-[3/4] bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden border border-slate-700/60";
+                
+                if(pageObj.type === 'pdf') {
+                    const img = document.createElement('img');
+                    img.src = pageObj.thumb;
+                    img.className = "w-full h-full object-contain";
+                    thumbWrapper.appendChild(img);
+                } else {
+                    const blankSign = document.createElement('span');
+                    blankSign.className = "text-[10px] text-slate-500 uppercase tracking-widest font-bold";
+                    blankSign.textContent = "Blank Space";
+                    thumbWrapper.appendChild(blankSign);
+                }
+                card.appendChild(thumbWrapper);
+
+                const footerLabel = document.createElement('div');
+                footerLabel.className = "text-[9px] text-slate-400 font-mono truncate w-full text-center";
+                footerLabel.textContent = pageObj.type === 'pdf' ? `Source Pg: \${pageObj.originalIndex + 1}` : 'Structural Fill';
+                card.appendChild(footerLabel);
+
+                card.addEventListener('dragstart', (e) => {
+                    draggedIndex = idx;
+                    card.classList.add('opacity-40');
+                });
+                card.addEventListener('dragend', () => {
+                    draggedIndex = null;
+                    card.classList.remove('opacity-40');
+                });
+                card.addEventListener('dragover', (e) => e.preventDefault());
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if(draggedIndex !== null && draggedIndex !== idx) {
+                        const targetData = activePageStream[draggedIndex];
+                        activePageStream.splice(draggedIndex, 1);
+                        activePageStream.splice(idx, 0, targetData);
+                        renderDeck();
+                    }
+                });
+
+                deckContainer.appendChild(card);
+            });
+
+            evaluateStreamRequirements();
+        }
+
+        generatePdfBtn.addEventListener('click', async () => {
+            if(activePageStream.length === 0) {
+                logStatus("Compilation failed: Active streams are empty.", "error");
+                return;
+            }
+
+            try {
+                logStatus("Running structural matrix compilation...", "working");
+                const bpType = blueprintFormat.value;
+                const bp = Blueprints[bpType];
+                const outputPdf = await PDFLib.PDFDocument.create();
+                
+                let sourcePdfDoc = null;
+                if(loadedPdfBytes) {
+                    sourcePdfDoc = await PDFLib.PDFDocument.load(loadedPdfBytes);
+                }
+
+                const baseSheetWidth = 792;
+                const baseSheetHeight = 612;
+                let dynamicSheets = [];
+                
+                if(bpType === '28page_double_booklet') {
+                    const paddedStream = [...activePageStream];
+                    while(paddedStream.length % 4 !== 0) {
+                        paddedStream.push({ type: 'blank' });
+                    }
+                    const calculatedTotalPages = paddedStream.length;
+                    const signatureCount = Math.ceil(calculatedTotalPages / 4);
+
+                    for(let i = 0; i < signatureCount; i++) {
+                        const base = i * 2;
+                        const opposite = calculatedTotalPages - 1 - base;
+                        
+                        dynamicSheets.push({
+                            cols: 2, rows: 1,
+                            mapping: [
+                                { streamIdx: opposite, rot: 0 }, { streamIdx: base, rot: 0 }
+                            ]
+                        });
+                        dynamicSheets.push({
+                            cols: 2, rows: 1,
+                            mapping: [
+                                { streamIdx: base + 1, rot: 0 }, { streamIdx: opposite - 1, rot: 0 }
+                            ]
+                        });
+                    }
+                } else {
+                    const totalRequired = bp.targetPages;
+                    const layoutBlueprint = bp.layout;
+                    let indexPointer = 0;
+                    
+                    while(indexPointer < activePageStream.length || indexPointer === 0) {
+                        const mappingArray = [];
+                        for(let cell = 0; cell < totalRequired; cell++) {
+                            const mappingConfig = layoutBlueprint[cell];
+                            mappingArray.push({
+                                streamIdx: indexPointer + (mappingConfig ? mappingConfig.idx : cell),
+                                rot: mappingConfig ? mappingConfig.rot : 0
+                            });
+                        }
+                        dynamicSheets.push({
+                            cols: bp.cols,
+                            rows: bp.rows,
+                            mapping: mappingArray,
+                            blueprintRef: bp
+                        });
+                        indexPointer += totalRequired;
+                        if (indexPointer >= activePageStream.length && activePageStream.length > 0) break;
+                    }
+                }
+
+                for(let sheetIndex = 0; sheetIndex < dynamicSheets.length; sheetIndex++) {
+                    const currentSheet = dynamicSheets[sheetIndex];
+                    const pageNode = outputPdf.addPage([baseSheetWidth, baseSheetHeight]);
+                    
+                    const gridCols = currentSheet.cols;
+                    const gridRows = currentSheet.rows;
+                    const cellWidth = baseSheetWidth / gridCols;
+                    const cellHeight = baseSheetHeight / gridRows;
+
+                    for(let cellIdx = 0; cellIdx < currentSheet.mapping.length; cellIdx++) {
+                        const cellMap = currentSheet.mapping[cellIdx];
+                        const streamItem = activePageStream[cellMap.streamIdx];
+                        
+                        if(!streamItem || streamItem.type === 'blank') continue;
+
+                        const [embeddedPage] = await outputPdf.embedPages([sourcePdfDoc.getPages()[streamItem.originalIndex]]);
+                        
+                        const colIdx = cellIdx % gridCols;
+                        const rowIdx = Math.floor(cellIdx / gridCols);
+                        const targetX = colIdx * cellWidth;
+                        const targetY = baseSheetHeight - ((rowIdx + 1) * cellHeight);
+
+                        const scaleX = cellWidth / embeddedPage.getWidth();
+                        const scaleY = cellHeight / embeddedPage.getHeight();
+                        const chosenScale = Math.min(scaleX, scaleY);
+
+                        const drawWidth = embeddedPage.getWidth() * chosenScale;
+                        const drawHeight = embeddedPage.getHeight() * chosenScale;
+
+                        let finalX = targetX + (cellWidth - drawWidth) / 2;
+                        let finalY = targetY + (cellHeight - drawHeight) / 2;
+
+                        if (cellMap.rot === 90) {
+                            finalX += cellWidth;
+                        } else if (cellMap.rot === 180) {
+                            finalX += cellWidth;
+                            finalY += cellHeight;
+                        } else if (cellMap.rot === 270) {
+                            finalY += cellHeight;
+                        }
+
+                        pageNode.drawPage(embeddedPage, {
+                            x: finalX,
+                            y: finalY,
+                            width: drawWidth,
+                            height: drawHeight,
+                            rotate: PDFLib.degrees(cellMap.rot)
+                        });
+                    }
+
+                    const drawFolds = document.getElementById('renderFolds').checked;
+                    const drawCuts = document.getElementById('renderCuts').checked;
+                    const refBlueprint = currentSheet.blueprintRef;
+
+                    if(refBlueprint) {
+                        if(drawFolds && refBlueprint.folds) {
+                            refBlueprint.folds.forEach(f => {
+                                pageNode.drawLine({
+                                    start: { x: f.x1 * baseSheetWidth, y: f.y1 * baseSheetHeight },
+                                    end: { x: f.x2 * baseSheetWidth, y: f.y2 * baseSheetHeight },
+                                    thickness: 1,
+                                    color: PDFLib.rgb(0.4, 0.4, 0.8),
+                                    dashArray: [4, 4]
+                                });
+                            });
+                        }
+                        if(drawCuts && refBlueprint.cuts) {
+                            refBlueprint.cuts.forEach(c => {
+                                pageNode.drawLine({
+                                    start: { x: c.x1 * baseSheetWidth, y: c.y1 * baseSheetHeight },
+                                    end: { x: c.x2 * baseSheetWidth, y: c.y2 * baseSheetHeight },
+                                    thickness: 1.2,
+                                    color: PDFLib.rgb(0.9, 0.2, 0.2)
+                                });
+                            });
+                        }
+                    }
+                }
+
+                const finalBytes = await outputPdf.save();
+                const blob = new Blob([finalBytes], { type: 'application/pdf' });
+                const downloadUrl = URL.createObjectURL(blob);
+                
+                const virtualAnchor = document.createElement('a');
+                virtualAnchor.href = downloadUrl;
+                virtualAnchor.download = `production_imposition_\${bpType}.pdf`;
+                document.body.appendChild(virtualAnchor);
+                virtualAnchor.click();
+                
+                document.body.removeChild(virtualAnchor);
+                URL.revokeObjectURL(downloadUrl);
+
+                logStatus("Compilation stable. File compiled successfully.");
+            } catch (err) {
+                console.error(err);
+                logStatus("Compilation routine fault.", "error");
+            }
+        });
+    </script>
+</body>
+</html>

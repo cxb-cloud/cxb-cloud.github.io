@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Production Zine Imposition Engine</title>
+    <!-- Tailwind CSS v3 Blueprint -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        .asset-card:hover .delete-btn { opacity: 1; }
+        .grid-cell-ghost { background-color: #f3f4f6; border: 2px dashed #cbd5e1; }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-100 font-sans antialiased p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-8">
+        <!-- Header banner -->
+        <header class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-black tracking-tight text-white flex items-center gap-2">
+                    <span>✂️</span> Zine Imposition Engine <span class="text-xs bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-bold px-2 py-0.5 rounded">PRO v2.0</span>
+                </h1>
+                <p class="text-sm text-slate-400 mt-1">Drop documents, manipulate page streams, and automatically generate rotated print-ready impositions.</p>
+            </div>
+            <div id="statusBadge" class="bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl flex items-center gap-3 text-xs text-slate-300">
+                <span id="statusIndicator" class="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
+                <span id="statusText">System Standing By</span>
+            </div>
+        </header>
+
+        <!-- Main Workspace split -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- CONTROLS AND LAYOUT SPECIFICATIONS (LEFT PANEL) -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Data Gathering Core -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg space-y-4">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <span class="bg-indigo-500 text-white rounded-md h-5 w-5 flex items-center justify-center text-[10px]">1</span>
+                        Data Ingestion Pipeline
+                    </h2>
+                    
+                    <div id="dropZone" class="border-2 border-dashed border-slate-600 hover:border-indigo-500 hover:bg-slate-750 rounded-xl p-8 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[160px] bg-slate-900/50">
+                        <span class="text-3xl mb-2">📥</span>
+                        <p class="text-xs font-bold text-slate-200">Drag & Drop Multi-Page PDF Here</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Processes vector channels & isolates individual page assets directly in-browser</p>
+                        <input type="file" id="pdfFileInput" accept=".pdf" class="hidden">
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button id="addBlankBtn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition border border-slate-600 flex items-center justify-center gap-2">
+                            ➕ Insert Blank Page
+                        </button>
+                        <button id="clearAllBtn" class="bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 font-semibold text-xs py-2.5 px-4 rounded-xl transition border border-rose-900/50">
+                            Clear Deck
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Scheme Configuration Selector -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg space-y-4">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <span class="bg-indigo-500 text-white rounded-md h-5 w-5 flex items-center justify-center text-[10px]">2</span>
+                        Structural Imposition Mapping Matrix
+                    </h2>
+                    
+                    <div class="space-y-3">
+                        <label class="block text-xs font-bold text-slate-400">Target Print Blueprint Architecture:</label>
+                        <select id="blueprintFormat" class="w-full text-sm bg-slate-900 border border-slate-700 text-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="61page_micro_double">61-Page Micro-Mini Double-Sided (8x8 Serpentine Single-Paper Grid)</option>
+                            <option value="28page_double_booklet">28-Page Double-Sided Booklet (Single Paper Signature Layout)</option>
+                            <option value="16page_micro_mini">16-Page Micro-Mini Single-Sided (4x4 Multidirectional Fold Block)</option>
+                            <option value="8page_micro">8-Page Micro Zine (Single-Sided + Primary Horizontal Center Slit)</option>
+                            <option value="fancy_flapbook">Fancy Flapbook Structure (Inward Double Door Fold)</option>
+                            <option value="fancy_t_cut">Fancy T-Cut Booklet Layout (Double Axis Inverted Flaps)</option>
+                            <option value="mini_booklet">Mini Booklet Signature (2x4 Landscape Block Signature)</option>
+                            <option value="quarter_zine">Quarter-Page Folded Zine (2x2 Multi-Axis Flip Layout)</option>
+                            <option value="normal_accordion">Continuous Strip Normal Accordion (Uniform Alignment)</option>
+                            <option value="8page_zfold">8-Page Fan Fold Z-Architecture (Alternating Vector Run)</option>
+                            <option value="tetraflexagon">Square Tetraflexagon Puzzle Layout (Cyclic Internal Panel Mapping)</option>
+                        </select>
+                    </div>
+
+                    <div id="blueprintStats" class="bg-slate-900/60 border border-slate-700/60 p-3 rounded-xl text-[11px] text-slate-400 space-y-1">
+                        <!-- Filled by layout engines -->
+                    </div>
+                </div>
+
+                <!-- Vector Guide Settings -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg space-y-3">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">3. Print Guide Overlays</h2>
+                    <div class="space-y-2 text-xs">
+                        <label class="flex items-center gap-2.5 cursor-pointer text-slate-300">
+                            <input type="checkbox" id="renderFolds" checked class="h-4 w-4 rounded border-slate-700 text-indigo-600 bg-slate-900 focus:ring-indigo-500">
+                            <span>Draw structural dashed folding lines</span>
+                        </label>
+                        <label class="flex items-center gap-2.5 cursor-pointer text-slate-300">
+                            <input type="checkbox" id="renderCuts" checked class="h-4 w-4 rounded border-slate-700 text-indigo-600 bg-slate-900 focus:ring-indigo-500">
+                            <span>Draw solid red cutting slice guides</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL WORKSPACE -->
+            <div class="lg:col-span-8 bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-lg">
+                <h2 class="text-sm font-bold tracking-wide text-white mb-4">Workspace Area</h2>
+                <p class="text-xs text-slate-400 mb-6">The remaining code snippet provided was cut off. Ready for layout engine implementation.</p>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>
