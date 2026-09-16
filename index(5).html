@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Zine Imposition Engine Pro</title>
+    <!-- Tailwind CSS v4 -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- pdf-lib for production PDF generation -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <!-- PDF.js for rendering incoming PDF pages to images/canvases -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <style>
+        .drop-over { border-color: #3b82f6; background-color: #eff6ff; }
+        .dragging { opacity: 0.4; transform: scale(0.98); }
+        .workspace-grid { display: grid; gap: 12px; position: relative; width: 100%; aspect-ratio: 1.414 / 1; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; padding: 20px; box-sizing: border-box; }
+        /* Custom scrollbar styling for page strip */
+        .custom-scroll::-webkit-scrollbar { height: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 p-4 sm:p-6 font-sans antialiased">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        <!-- Main Top Bar Banner -->
+        <header class="bg-gradient-to-r from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">✂️</span>
+                    <h1 class="text-2xl font-black tracking-tight">Ultimate Zine Imposition Studio</h1>
+                </div>
+                <p class="text-xs text-indigo-200 mt-1">Arrange layouts with automated rotation, accurate cutting paths, fold lines, and instant file generation.</p>
+            </div>
+            <div id="globalStatus" class="flex text-xs bg-indigo-800/60 text-indigo-100 px-3 py-1.5 rounded-full font-medium border border-indigo-700/50 items-center gap-2">
+                <span class="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="statusMessage">Engine Operational</span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- CONTROLS & MANAGEMENT PANEL (4 Cols) -->
+            <div class="lg:col-span-4 space-y-5">
+                
+                <!-- 1. Asset Storage & Processing -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                        <span>1. Data Load & Options</span>
+                        <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px]" id="loadedCounter">0 Pages</span>
+                    </h2>
+                    
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2">
+                        <span class="block font-semibold text-slate-600">Pre-Processing Configuration:</span>
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-700">
+                            <input type="checkbox" id="splitLengthwise" class="rounded text-indigo-600 focus:ring-indigo-500">
+                            <span>Split dynamic landscape spreads in half</span>
+                        </label>
+                    </div>
+
+                    <div id="dropZone" class="border-2 border-dashed border-slate-200 rounded-xl p-5 text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-50/50 transition flex flex-col items-center justify-center min-h-[120px]">
+                        <span class="text-3xl mb-1">📥</span>
+                        <p class="text-xs font-bold text-slate-700">Drop PDF or Images Here</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Loads straight to local memory canvas</p>
+                        <input type="file" id="fileInput" accept=".pdf,image/*" multiple class="hidden">
+                    </div>
+                </div>
+
+                <!-- 2. Interactive Zine Blueprints Selector -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">2. Layout Blueprints Index</h2>
+                    
+                    <div class="space-y-3">
+                        <label class="block text-xs font-semibold text-slate-600">Select Target Blueprint Structure:</label>
+                        <select id="zineType" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none font-medium">
+                            <optgroup label="Micro & Mini Formats">
+                                <option value="8page_single" selected>8-Page Micro Zine (1 Sided Sheet + Center Slit Cut)</option>
+                                <option value="16page_micro_mini">16-Page Micro-Mini (1 Sided Sheet + Complex Slit Fold)</option>
+                                <option value="micro_zine">Standard Micro Zine (Pocket Variant Layout)</option>
+                                <option value="mini_booklet">Mini Booklet Signature (Folded Small Spec)</option>
+                                <option value="quarter_zine">Quarter-Page Folded Zine (4 Pages per A4 Face)</option>
+                            </optgroup>
+                            <optgroup label="Accordion Variations">
+                                <option value="normal_accordion">Normal Accordion Zine (Linear continuous folding strip)</option>
+                                <option value="6page_accordion">6-Page Accordion Tri-Fold (3 Panels Front / 3 Back)</option>
+                                <option value="8page_z_fold">8-Page Z-Fold Fan Architecture Layout</option>
+                            </optgroup>
+                            <optgroup label="Advanced & Novelty Architectures">
+                                <option value="fancy_flapbook">Fancy Flapbook Structure (Double Folding Windows)</option>
+                                <option value="fancy_t_cut">Fancy T-Cut Booklet Layout (Intersecting Cut Vectors)</option>
+                                <option value="tetraflexagon">Square Tetraflexagon Puzzle Layout (Magic Fold Mapping)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div id="blueprintMeta" class="bg-indigo-50 text-indigo-900 p-3.5 rounded-xl text-xs space-y-1">
+                        <!-- Filled by script dynamically -->
+                    </div>
+                </div>
+
+                <!-- 3. Toggle Control Settings -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">3. Print Settings</h2>
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <label class="flex items-center gap-2 cursor-pointer bg-slate-50 p-2 rounded-lg border border-slate-200">
+                            <input type="checkbox" id="drawFoldLines" checked class="rounded text-indigo-600">
+                            <span class="font-medium text-slate-700">Dashed Folds</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer bg-slate-50 p-2 rounded-lg border border-slate-200">
+                            <input type="checkbox" id="drawCutLines" checked class="rounded text-indigo-600">
+                            <span class="font-medium text-slate-700">Solid Cut Marks</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 4. Generation Controls -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">4. Processing & Rendering</h2>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btnExportPdf" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 px-3 rounded-xl shadow-sm transition cursor-pointer flex items-center justify-center gap-1">
+                            <span>📄</span> Export PDF
+                        </button>
+                        <button id="btnExportImage" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs py-2.5 px-3 rounded-xl shadow-sm transition cursor-pointer flex items-center justify-center gap-1">
+                            <span>🖼️</span> Export Image
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- WORKBENCH MANAGEMENT & CANVAS GRID PANEL (8 Cols) -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Page Deck Asset Arranger Strip -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800">Dynamic Asset Strip Deck</h3>
+                            <p class="text-[11px] text-slate-400">Drag to change printing sequence, or hit deletion badges to drop pages.</p>
+                        </div>
+                        <button id="btnAddBlank" class="bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-700 font-semibold text-xs py-1.5 px-3 rounded-lg transition flex items-center gap-1 cursor-pointer">
+                            ➕ Add Blank Placeholder Panel
+                        </button>
+                    </div>
+
+                    <!-- Horizontal Draggable Track -->
+                    <div id="pagesContainer" class="flex gap-3 overflow-x-auto p-2 bg-slate-50 border border-slate-200/60 rounded-xl min-h-[110px] items-center custom-scroll">
+                        <!-- Loaded elements show up here -->
+                        <div class="text-center w-full text-xs text-slate-400 py-6" id="emptyDeckState">
+                            No active panels. Upload files or inject blank placeholder views to build matrix layout rows.
+                        </div>
+                    </div>
+
+                    <!-- Alignment Check Rules -->
+                    <div class="flex items-center justify-between text-xs font-semibold px-1 pt-1">
+                        <span class="text-slate-500">Workspace Target Count Matcher:</span>
+                        <span id="countValidation" class="text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">0 / 8 Pages Connected</span>
+                    </div>
+                </div>
+
+                <!-- Live Vector Transformation Display Sandbox Canvas -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800">Live Imposition Matrix Sandbox</h3>
+                            <p class="text-[11px] text-slate-400">Displays real-time page transformation, cutting lanes (Red Scissors), and folded grids (Dashed Blue Lines).</p>
+                        </div>
+                        <span class="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded shadow-xs" id="canvasViewLabel">Sheet 1 Side A</span>
+                    </div>
+
+                    <!-- Container tracking aspect ratio bounding boxes -->
+                    <div class="bg-slate-100 p-4 rounded-xl border border-slate-200 flex justify-center items-center overflow-hidden">
+                        <canvas id="previewCanvas" class="max-w-full h-auto bg-white rounded shadow-md border border-slate-300"></canvas>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MAIN ENGINE IMPLEMENTATION CORNERSTONE INTERACTIVE JAVASCRIPT -->
+    <script>
+        // PDFJS global configuration
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        // Master App Core Variables
+        let loadedAssets = []; // Array objects mapping { id, type: 'image'|'pdf'|'blank', dataUrl, canvasSource }
+        let currentDragIndex = null;
+
+        // Ultimate Configuration Schema for Zines detailing expected counts, grid systems, page re-ordering maps, rotations
+        const ZINE_BLUEPRINTS = {
+            '8page_single': {
+                name: "8-Page Micro Zine",
+                required: 8,
+                cols: 4, rows: 2,
+                meta: "1 Single-sided sheet printed. Folds down to 8 mini pages. Center vertical slit cut required.",
+                // Maps grid cell to exact asset index. Array ordered row by row left-to-right.
+                // Standard imposition mapping rotation layout parameters (0, 90, 180, 270 deg)
+                // Row 1: Page 8 (Upside Down), Page 1 (Upside Down), Page 2 (Upside Down), Page 3 (Upside Down)
+                // Row 2: Page 7 (Right side up), Page 6 (Right side up), Page 5 (Right side up), Page 4 (Right side up)
+                layout: [
+                    { targetIndex: 7, rot: 180 }, { targetIndex: 0, rot: 180 }, { targetIndex: 1, rot: 180 }, { targetIndex: 2, rot: 180 },
+                    { targetIndex: 6, rot: 0 },   { targetIndex: 5, rot: 0 },   { targetIndex: 4, rot: 0 },   { targetIndex: 3, rot: 0 }
+                ],
+                cuts: [{type: 'h-center-slit', startCol: 1, endCol: 3, row: 1}]
+            },
+            '16page_micro_mini': {
+                name: "16-Page Micro-Mini Zine",
+                required: 16,
+                cols: 4, rows: 4,
+                meta: "16 distinct pages mapped onto single-sided sheet grid blueprint. Uses interlocking cross nested slice lines.",
+                layout: [
+                    { targetIndex: 15, rot: 180 }, { targetIndex: 0, rot: 180 },  { targetIndex: 1, rot: 180 },  { targetIndex: 2, rot: 180 },
+                    { targetIndex: 14, rot: 0 },   { targetIndex: 13, rot: 0 },    { targetIndex: 12, rot: 0 },   { targetIndex: 3, rot: 0 },
+                    { targetIndex: 11, rot: 180 }, { targetIndex: 10, rot: 180 }, { targetIndex: 9, rot: 180 },  { targetIndex: 4, rot: 180 },
+                    { targetIndex: 8, rot: 0 },    { targetIndex: 7, rot: 0 },     { targetIndex: 6, rot: 0 },    { targetIndex: 5, rot: 0 }
+                ],
+                cuts: [
+                    {type: 'horizontal', startCol: 1, endCol: 3, row: 2},
+                    {type: 'vertical', col: 1, startRow: 1, endRow: 3}
+                ]
+            },
+            'micro_zine': {
+                name: "Pocket Micro Zine Variant",
+                required: 8,
+                cols: 4, rows: 2,
+                meta: "Alternative 8-page format optimized with side bleed gutters for clean booklet edge trims.",
+                layout: [
+                    { targetIndex: 4, rot: 180 }, { targetIndex: 5, rot: 180 }, { targetIndex: 6, rot: 180 }, { targetIndex: 7, rot: 180 },
+                    { targetIndex: 3, rot: 0 },   { targetIndex: 2, rot: 0 },   { targetIndex: 1, rot: 0 },   { targetIndex: 0, rot: 0 }
+                ],
+                cuts: [{type: 'h-center-slit', startCol: 1, endCol: 3, row: 1}]
+            },
+            'mini_booklet': {
+                name: "Mini Booklet Signature Layout",
+                required: 8,
+                cols: 2, rows: 2,
+                meta: "Double sided printing mini signature matrix arrangement for standard signatures bindings.",
+                layout: [
+                    { targetIndex: 7, rot: 0 }, { targetIndex: 0, rot: 0 },
+                    { targetIndex: 3, rot: 0 }, { targetIndex: 4, rot: 0 }
+                ],
+                cuts: []
+            },
+            'quarter_zine': {
+                name: "Quarter-Page Standard Fold Zine",
+                required: 4,
+                cols: 2, rows: 2,
+                meta: "4 large quarter panel views grouped per structural sheet section layout.",
+                layout: [
+                    { targetIndex: 3, rot: 180 }, { targetIndex: 0, rot: 180 },
+                    { targetIndex: 2, rot: 0 },   { targetIndex: 1, rot: 0 }
+                ],
+                cuts: []
+            },
+            'normal_accordion': {
+                name: "Continuous Strip Accordion Zine",
+                required: 6,
+                cols: 6, rows: 1,
+                meta: "Continuous side-by-side uniform layout alignment panel matching fan fold lines.",
+                layout: [
+                    { targetIndex: 0, rot: 0 }, { targetIndex: 1, rot: 0 }, { targetIndex: 2, rot: 0 },
+                    { targetIndex: 3, rot: 0 }, { targetIndex: 4, rot: 0 }, { targetIndex: 5, rot: 0 }
+                ],
+                cuts: []
+            },
+            '6page_accordion': {
+                name: "6-Page Tri-Fold Accordion",
+                required: 6,
+                cols: 3, rows: 2,
+                meta: "3 side-by-side elements front and 3 back panels perfectly configured.",
+                layout: [
+                    { targetIndex: 0, rot: 0 }, { targetIndex: 1, rot: 0 }, { targetIndex: 2, rot: 0 },
+                    { targetIndex: 5, rot: 0 }, { targetIndex: 4, rot: 0 }, { targetIndex: 3, rot: 0 }
+                ],
+                cuts: []
+            },
+            '8page_z_fold': {
+                name: "8-Page Fan Fold Z-Architecture",
+                required: 8,
+                cols: 4, rows: 2,
+                meta: "Zig-zag structural layout configurations tracking sequential linear reads.",
+                layout: [
+                    { targetIndex: 0, rot: 0 }, { targetIndex: 1, rot: 0 }, { targetIndex: 2, rot: 0 }, { targetIndex: 3, rot: 0 },
+                    { targetIndex: 7, rot: 0 }, { targetIndex: 6, rot: 0 }, { targetIndex: 5, rot: 0 }, { targetIndex: 4, rot: 0 }
+                ],
+                cuts: []
+            },
+            'fancy_flapbook': {
+                name: "Fancy Window Flapbook Blueprint",
+                required: 8,
+                cols: 4, rows: 2,
+                meta: "Folding outer windows flap inwards. Pages 1 & 8 create the dynamic split outer cover panel views.",
+                layout: [
+                    { targetIndex: 0, rot: 90 },  { targetIndex: 2, rot: 270 }, { targetIndex: 3, rot: 90 },  { targetIndex: 7, rot: 270 },
+                    { targetIndex: 1, rot: 90 },  { targetIndex: 4, rot: 270 }, { targetIndex: 5, rot: 90 },  { targetIndex: 6, rot: 270 }
+                ],
+                cuts: [{type: 'vertical', col: 2, startRow: 0, endRow: 2}]
+            },
+            'fancy_t_cut': {
+                name: "Fancy Interlocking T-Cut Book",
+                required: 12,
+                cols: 4, rows: 3,
+                meta: "Advanced layout utilizing a dedicated T-shaped structural scissor cut to map folding flap boxes.",
+                layout: [
+                    { targetIndex: 11, rot: 180 }, { targetIndex: 0, rot: 180 },  { targetIndex: 1, rot: 180 },  { targetIndex: 2, rot: 180 },
+                    { targetIndex: 10, rot: 0 },   { targetIndex: 9, rot: 90 },   { targetIndex: 8, rot: 270 }, { targetIndex: 3, rot: 0 },
+                    { targetIndex: 7, rot: 0 },    { targetIndex: 6, rot: 0 },    { targetIndex: 5, rot: 0 },    { targetIndex: 4, rot: 0 }
+                ],
+                cuts: [
+                    {type: 'horizontal', startCol: 1, endCol: 3, row: 1},
+                    {type: 'vertical', col: 2, startRow: 1, endRow: 3}
+                ]
+            },
+            'tetraflexagon': {
+                name: "Magic Square Tetraflexagon Puzzle",
+                required: 12,
+                cols: 4, rows: 3,
+                meta: "Mathematical layout structure mapping flexagon puzzle faces across rotating structural sheets.",
+                layout: [
+                    { targetIndex: 0, rot: 0 },   { targetIndex: 4, rot: 90 },  { targetIndex: 8, rot: 180 }, { targetIndex: 1, rot: 270 },
+                    { targetIndex: 2, rot: 180 }, { targetIndex: 6, rot: 0 },   { targetIndex: 10, rot: 90 },  { targetIndex: 3, rot: 0 },
+                    { targetIndex: 5, rot: 270 }, { targetIndex: 7, rot: 180 }, { targetIndex: 9, rot: 0 },   { targetIndex: 11, rot: 90 }
+                ],
+                cuts: [{type: 'horizontal', startCol: 1, endCol: 3, row: 1}]
+            }
+        };
+
+        // DOM Nodes Hook
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const zineTypeSelect = document.getElementById('zineType');
+        const blueprintMeta = document.getElementById('blueprintMeta');
+        const pagesContainer = document.getElementById('pagesContainer');
+        const countValidation = document.getElementById('countValidation');
+        const loadedCounter = document.getElementById('loadedCounter');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const btnAddBlank = document.getElementById('btnAddBlank');
+        const btnExportPdf = document.getElementById('btnExportPdf');
+        const btnExportImage = document.getElementById('btnExportImage');
+        const drawFoldLinesCheck = document.getElementById('drawFoldLines');
+        const drawCutLinesCheck = document.getElementById('drawCutLines');
+
+        // Initial App Initializer Trigger
+        function initApp() {
+            setupEventHandlers();
+            updateBlueprintMeta();
+            renderPreviewCanvas();
+        }
+
+        // Setup All System Event Listeners
+        function setupEventHandlers() {
+            // Drag and drop ingestion hooks
+            dropZone.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelection);
+            
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drop-over'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drop-over'));
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drop-over');
+                if (e.dataTransfer.files.length > 0) {
+                    processUploadedFiles(e.dataTransfer.files);
+                }
+            });
+
+            // Blueprint settings change hooks
+            zineTypeSelect.addEventListener('change', () => {
+                updateBlueprintMeta();
+                updateValidationLabel();
+                renderPreviewCanvas();
+            });
+
+            // Blank button injector
+            btnAddBlank.addEventListener('click', injectBlankPanel);
+
+            // Re-render bindings on check toggles
+            drawFoldLinesCheck.addEventListener('change', renderPreviewCanvas);
+            drawCutLinesCheck.addEventListener('change', renderPreviewCanvas);
+
+            // Export Actions Router
+            btnExportPdf.addEventListener('click', generateProductionPDF);
+            btnExportImage.addEventListener('click', downloadCanvasAsImage);
+        }
+
+        // Meta display engine updating blueprint specifics
+        function updateBlueprintMeta() {
+            const config = ZINE_BLUEPRINTS[zineTypeSelect.value];
+            blueprintMeta.innerHTML = `
+                <div class="font-bold text-[13px] text-indigo-900">${config.name} Blueprint</div>
+                <div class="text-[11px] text-indigo-700/90 leading-relaxed mt-0.5">${config.meta}</div>
+                <div class="flex gap-3 text-[10px] uppercase font-bold text-indigo-500 mt-2">
+                    <span>📐 Grid: ${config.cols}x${config.rows}</span>
+                    <span>📄 Targets: ${config.required} panels</span>
+                </div>
+            `;
+        }
+
+        // Ingestion Router Factory parsing multi-format asset payloads
+        function handleFileSelection(e) {
+            if (e.target.files.length > 0) {
+                processUploadedFiles(e.target.files);
+            }
+        }
+
+        async function processUploadedFiles(files) {
+            setGlobalStatus("Processing files into grid vectors...", true);
+            const splitChecked = document.getElementById('splitLengthwise').checked;
+
+            for (let file of files) {
+                if (file.type === 'application/pdf') {
+                    await parseIncomingPDF(file, splitChecked);
+                } else if (file.type.startsWith('image/')) {
+                    await parseIncomingImage(file);
+                }
+            }
+            setGlobalStatus("Engine Operational", false);
+            refreshPageDeckTrack();
+        }
+
+        // PDF Vector Processing Engine Parsing Native Canvas Instances
+        async function parseIncomingPDF(file, splitChecked) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    
+                    // Render to hidden canvas component to extract baseline tracking URL data references
+                    const viewport = page.getViewport({ scale: 1.5 });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    
+                    await page.render({ canvasContext: context, viewport: viewport }).promise;
+                    
+                    if (splitChecked && viewport.width > viewport.height) {
+                        // Split landscape sheets cleanly down the middle vertical line grid path
+                        const halfW = canvas.width / 2;
+                        
+                        // Left Pane Splitting Setup
+                        const canvasLeft = document.createElement('canvas');
+                        canvasLeft.width = halfW; canvasLeft.height = canvas.height;
+                        const ctxL = canvasLeft.getContext('2d');
+                        ctxL.drawImage(canvas, 0, 0, halfW, canvas.height, 0, 0, halfW, canvas.height);
+                        appendAssetNode({
+                            id: generateUniqueId(),
+                            type: 'pdf-split-left',
+                            dataUrl: canvasLeft.toDataURL('image/jpeg', 0.85)
+                        });
+
+                        // Right Pane Splitting Setup
+                        const canvasRight = document.createElement('canvas');
+                        canvasRight.width = halfW; canvasRight.height = canvas.height;
+                        const ctxR = canvasRight.getContext('2d');
+                        ctxR.drawImage(canvas, halfW, 0, halfW, canvas.height, 0, 0, halfW, canvas.height);
+                        appendAssetNode({
+                            id: generateUniqueId(),
+                            type: 'pdf-split-right',
+                            dataUrl: canvasRight.toDataURL('image/jpeg', 0.85)
+                        });
+                    } else {
+                        // Append unified non split assets
+                        appendAssetNode({
+                            id: generateUniqueId(),
+                            type: 'pdf-page',
+                            dataUrl: canvas.toDataURL('image/jpeg', 0.85)
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("PDF engine failure parsing data stream: ", err);
+                alert("Failed to decode uploaded PDF file data structure.");
+            }
+        }
+
+        // Direct standard image file payload ingestion
+        function parseIncomingImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    appendAssetNode({
+                        id: generateUniqueId(),
+                        type: 'image',
+                        dataUrl: e.target.result
+                    });
+                    resolve();
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function injectBlankPanel() {
+            appendAssetNode({
+                id: generateUniqueId(),
+                type: 'blank',
+                dataUrl: null
+            });
+            refreshPageDeckTrack();
+        }
+
+        function appendAssetNode(assetObj) {
+            loadedAssets.push(assetObj);
+        }
+
+        function generateUniqueId() {
+            return 'panel_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // UI Builder Rendering horizontal asset strip track
+        function refreshPageDeckTrack() {
+            const emptyState = document.getElementById('emptyDeckState');
+            if (loadedAssets.length === 0) {
+                emptyState.style.display = 'block';
+                // clear structural children leaves except base template empty label placeholder
+                Array.from(pagesContainer.children).forEach(el => {
+                    if(el.id !== 'emptyDeckState') el.remove();
+                });
+            } else {
+                emptyState.style.display = 'none';
+                // Wipe down existing elements safely to avoid duplication pipelines
+                Array.from(pagesContainer.children).forEach(el => {
+                    if(el.id !== 'emptyDeckState') el.remove();
+                });
+
+                loadedAssets.forEach((asset, index) => {
+                    const block = document.createElement('div');
+                    block.className = "relative flex-shrink-0 w-20 h-24 bg-white border-2 border-slate-300 rounded-lg overflow-hidden shadow-xs cursor-grab active:cursor-grabbing select-none group transition hover:border-indigo-400";
+                    block.setAttribute('draggable', 'true');
+                    block.setAttribute('data-index', index);
+
+                    // Add content visual layers
+                    if (asset.type === 'blank') {
+                        block.innerHTML = `
+                            <div class="w-full h-full bg-slate-100 flex flex-col items-center justify-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                <span>Blank</span>
+                                <span class="text-[9px] text-slate-300">Pad</span>
+                            </div>
+                        `;
+                    } else {
+                        block.innerHTML = `
+                            <img src="${asset.dataUrl}" class="w-full h-full object-cover pointer-events-none" />
+                        `;
+                    }
+
+                    // Floating sequential page counter badges
+                    const badge = document.createElement('div');
+                    badge.className = "absolute bottom-1 left-1 bg-slate-900/80 text-white text-[9px] px-1.5 py-0.5 rounded font-black tracking-tighter";
+                    badge.innerText = `P. ${index + 1}`;
+                    block.appendChild(badge);
+
+                    // Direct Deletion Handle Badges requested explicitly to fix broken workflows
+                    const delBtn = document.createElement('button');
+                    delBtn.className = "absolute -top-1 -right-1 bg-rose-600 hover:bg-rose-700 text-white text-[9px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-md cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity";
+                    delBtn.innerHTML = "×";
+                    delBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        removeAssetAtIndex(index);
+                    });
+                    block.appendChild(delBtn);
+
+                    // Setup HTML5 Drag & Drop structural logic handlers
+                    block.addEventListener('dragstart', handleDragStart);
+                    block.addEventListener('dragover', handleDragOver);
+                    block.addEventListener('drop', handleDrop);
+                    block.addEventListener('dragend', handleDragEnd);
+
+                    pagesContainer.appendChild(block);
+                });
+            }
+
+            loadedCounter.innerText = `${loadedAssets.length} Loaded`;
+            updateValidationLabel();
+            renderPreviewCanvas();
+        }
+
+        // Direct Asset Deletion Module requested by user
+        function removeAssetAtIndex(idx) {
+            loadedAssets.splice(idx, 1);
+            refreshPageDeckTrack();
+        }
+
+        // Drag handlers
+        function handleDragStart(e) {
+            currentDragIndex = parseInt(this.getAttribute('data-index'));
+            this.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const targetIdx = parseInt(this.getAttribute('data-index'));
+            if (currentDragIndex !== null && currentDragIndex !== targetIdx) {
+                // Swap position inside array mapping dynamically
+                const draggedItem = loadedAssets[currentDragIndex];
+                loadedAssets.splice(currentDragIndex, 1);
+                loadedAssets.splice(targetIdx, 0, draggedItem);
+                refreshPageDeckTrack();
+            }
+        }
+
+        function handleDragEnd() {
+            this.classList.remove('dragging');
+            currentDragIndex = null;
+        }
+
+        function updateValidationLabel() {
+            const config = ZINE_BLUEPRINTS[zineTypeSelect.value];
+            countValidation.innerText = `${loadedAssets.length} / ${config.required} Pages Loaded`;
+            
+            if (loadedAssets.length === config.required) {
+                countValidation.className = "text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200";
+            } else if (loadedAssets.length > config.required) {
+                countValidation.className = "text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200";
+            } else {
+                countValidation.className = "text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200";
+            }
+        }
+
+        // Vector Transformation Space Display Matrix Sandbox Blueprint Engine Core
+        function renderPreviewCanvas() {
+            const config = ZINE_BLUEPRINTS[zineTypeSelect.value];
+            
+            // Standardizing baseline print canvas widths around 1000px wide landscape target sheets
+            const baseW = 1050;
+            const baseH = 742; // standard root 2 landscape ratio bounds
+            
+            previewCanvas.width = baseW;
+            previewCanvas.height = baseH;
+            const ctx = previewCanvas.getContext('2d');
+            
+            // Background fill setup
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, baseW, baseH);
+
+            // Compute atomic size allocations for cells based on selected rows/cols configuration setup
+            const cellW = baseW / config.cols;
+            const cellH = baseH / config.rows;
+
+            // Step 1: Draw Asset Content Panels with accurate rotation matrix profiles
+            config.layout.forEach((cellConfig, matrixIndex) => {
+                const col = matrixIndex % config.cols;
+                const row = Math.floor(matrixIndex / config.cols);
+                const x = col * cellW;
+                const y = row * cellH;
+
+                // Capture mapped target index reference tracking source element loaded inside array sequence
+                const targetIdx = cellConfig.targetIndex;
+                const assetItem = loadedAssets[targetIdx];
+
+                ctx.save();
+                // Move origin cursor down directly into center alignment grid spot mapping cells
+                ctx.translate(x + cellW / 2, y + cellH / 2);
+                ctx.rotate((cellConfig.rot * Math.PI) / 180);
+
+                if (assetItem && assetItem.type !== 'blank') {
+                    // Draw thumbnail payload
+                    const img = new Image();
+                    img.src = assetItem.dataUrl;
+                    // Draw if cached or immediately loaded inline data references synchronously available
+                    if (img.complete) {
+                        ctx.drawImage(img, -cellW/2 + 4, -cellH/2 + 4, cellW - 8, cellH - 8);
+                    } else {
+                        img.onload = () => renderPreviewCanvas(); // safe fallback retrigger hooks
+                    }
+                } else {
+                    // Draw structural blank grids or template markers indicating layout placeholder
+                    ctx.fillStyle = assetItem ? "#f8fafc" : "#fafafa";
+                    ctx.fillRect(-cellW/2 + 4, -cellH/2 + 4, cellW - 8, cellH - 8);
+                    
+                    ctx.strokeStyle = "#cbd5e1";
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([4, 4]);
+                    ctx.strokeRect(-cellW/2 + 4, -cellH/2 + 4, cellW - 8, cellH - 8);
+                    ctx.setLineDash([]);
+
+                    ctx.fillStyle = "#94a3b8";
+                    ctx.font = "bold 11px sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(assetItem ? "BLANK PANEL" : `EMPTY SPOT (P. ${targetIdx + 1})`, 0, 0);
+                }
+
+                // Append structural debug text layout parameters indicating top edge alignment directions
+                ctx.fillStyle = "rgba(99, 102, 241, 0.15)";
+                ctx.fillRect(-cellW/2 + 6, -cellH/2 + 6, cellW - 12, 14);
+                ctx.fillStyle = "#4f46e5";
+                ctx.font = "black 9px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(`▲ TOP EDGE ▲ (PAGE ${targetIdx + 1})`, 0, -cellH/2 + 16);
+
+                ctx.restore();
+            });
+
+            // Step 2: Overlay Dashed Folding Guidelines requested specifically
+            if (drawFoldLinesCheck.checked) {
+                ctx.save();
+                ctx.strokeStyle = "#3b82f6";
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 6]);
+
+                // Vertical lanes grid folds
+                for (let c = 1; c < config.cols; c++) {
+                    ctx.beginPath();
+                    ctx.moveTo(c * cellW, 0);
+                    ctx.lineTo(c * cellW, baseH);
+                    ctx.stroke();
+                }
+                // Horizontal lanes grid folds
+                for (let r = 1; r < config.rows; r++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, r * cellH);
+                    ctx.lineTo(baseW, r * cellH);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            // Step 3: Draw Solid Scissors Slit Cutting Lines requested specifically to mark folds from slits
+            if (drawCutLinesCheck.checked && config.cuts) {
+                config.cuts.forEach(cut => {
+                    ctx.save();
+                    ctx.strokeStyle = "#e11d48"; // Sharp crimson/rose cut mark line references
+                    ctx.lineWidth = 4;
+                    
+                    if (cut.type === 'h-center-slit') {
+                        const startX = cut.startCol * cellW;
+                        const endX = cut.endCol * cellW;
+                        const yVal = cut.row * cellH;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(startX, yVal);
+                        ctx.lineTo(endX, yVal);
+                        ctx.stroke();
+
+                        // Render visual scissors icons to indicate cutting lanes
+                        ctx.fillStyle = "#e11d48";
+                        ctx.font = "20px sans-serif";
+                        ctx.fillText("✂️", startX + (endX - startX)/2 - 10, yVal + 7);
+                    } else if (cut.type === 'horizontal') {
+                        const yVal = cut.row * cellH;
+                        ctx.beginPath();
+                        ctx.moveTo(cut.startCol * cellW, yVal);
+                        ctx.lineTo(cut.endCol * cellW, yVal);
+                        ctx.stroke();
+                    } else if (cut.type === 'vertical') {
+                        const xVal = cut.col * cellW;
+                        ctx.beginPath();
+                        ctx.moveTo(xVal, cut.startRow * cellH);
+                        ctx.lineTo(xVal, cut.endRow * cellH);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                });
+            }
+        }
+
+        // Production PDF compiler pipeline leveraging window memory data URLs to match structural vectors
+        async function generateProductionPDF() {
+            const config = ZINE_BLUEPRINTS[zineTypeSelect.value];
+            if (loadedAssets.length < config.required) {
+                const proceed = confirm(`Warning: You have only loaded ${loadedAssets.length} of the required ${config.required} pages for this layout blueprint template. Unassigned spaces will render as crisp blank placeholder slots. Export anyway?`);
+                if (!proceed) return;
+            }
+
+            setGlobalStatus("Compiling vector print maps...", true);
+
+            try {
+                // Ensure latest updates are completely drawn onto baseline canvas wrapper
+                renderPreviewCanvas();
+
+                const pdfDoc = await PDFLib.PDFDocument.create();
+                // Match exact canvas bounding boxes onto crisp Landscape A4 size targets points (842 x 595 standard)
+                const page = pdfDoc.addPage([842, 595]);
+                
+                // Export preview canvas contents to high definition data reference string payloads
+                const snapshotDataUrl = previewCanvas.toDataURL('image/jpeg', 0.95);
+                const embeddedImage = await pdfDoc.embedJpg(snapshotDataUrl);
+                
+                // Draw compiled sheet mapping over coordinates canvas boundaries
+                page.drawImage(embeddedImage, {
+                    x: 0,
+                    y: 0,
+                    width: 842,
+                    height: 595
+                });
+
+                const pdfBytes = await pdfDoc.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `zine_imposed_${zineTypeSelect.value}.pdf`;
+                link.click();
+            } catch (err) {
+                console.error("PDF generator tracking crash: ", err);
+                alert("Failed to compile printing layout PDF matrix blueprint.");
+            } finally {
+                setGlobalStatus("Engine Operational", false);
+            }
+        }
+
+        // Direct standard high definition flat layout image file extraction download route
+        function downloadCanvasAsImage() {
+            renderPreviewCanvas();
+            const link = document.createElement('a');
+            link.href = previewCanvas.toDataURL('image/png');
+            link.download = `zine_sheet_blueprint_${zineTypeSelect.value}.png`;
+            link.click();
+        }
+
+        function setGlobalStatus(msg, isProcessing) {
+            const msgNode = document.getElementById('statusMessage');
+            const containerNode = document.getElementById('globalStatus');
+            msgNode.innerText = msg;
+            
+            if (isProcessing) {
+                containerNode.className = "flex text-xs bg-amber-600 text-amber-50 px-3 py-1.5 rounded-full font-medium items-center gap-2";
+            } else {
+                containerNode.className = "flex text-xs bg-indigo-800/60 text-indigo-100 px-3 py-1.5 rounded-full font-medium border border-indigo-700/50 items-center gap-2";
+            }
+        }
+
+        // Fire up global initialisation engine routine lifecycle sequence
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
